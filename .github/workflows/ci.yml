@@ -75,3 +75,74 @@ jobs:
       uses: github/codeql-action/analyze@v3
       with:
         category: "/language:csharp"
+
+  deploy-to-azure:
+    runs-on: windows-latest
+    needs: [build-and-test, codeql-analysis]
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop'
+    permissions:
+      id-token: write
+      contents: read
+    environment: 
+      name: dev
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Azure CLI Login with OIDC
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        
+    - name: Deploy Infrastructure
+      id: deploy-infra
+      run: |
+        cd infra
+        $jsonResult = az deployment sub create `
+          --template-file main.bicep `
+          --location "EastUS2" `
+          --parameters dev.parameters.json `
+          | ConvertFrom-Json
+        
+        Write-Output $jsonResult
+        
+        $ovar = $jsonResult.properties.outputs
+        Write-Output $ovar
+        
+        $webAppName = $jsonResult.properties.outputs.webAppName.value
+        $webAppUrl = $jsonResult.properties.outputs.webAppUrl.value
+        $location = $jsonResult.properties.outputs.location.value
+        $resourceGroupName = $jsonResult.properties.outputs.resourceGroupName.value
+        $resourceGroupId = $jsonResult.properties.outputs.resourceGroupId.value
+        
+        # Set GitHub Actions environment variables
+        "webAppName=$webAppName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        "webAppUrl=$webAppUrl" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        "location=$location" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        "resourceGroupName=$resourceGroupName" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        "resourceGroupId=$resourceGroupId" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+        
+        echo "Infrastructure deployed successfully"
+        echo "Web App Name: $webAppName"
+        echo "Web App URL: $webAppUrl"
+        echo "Resource Group: $resourceGroupName"
+        
+    - name: Build application for deployment
+      run: |
+        dotnet restore src/Tradewind/Tradewind.csproj
+        dotnet build src/Tradewind/Tradewind.csproj --configuration Release --no-restore
+        dotnet publish src/Tradewind/Tradewind.csproj --configuration Release --no-build --output ./publish
+        
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: ${{ steps.deploy-infra.outputs.webAppName }}
+        package: ./publish
