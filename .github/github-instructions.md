@@ -1,5 +1,27 @@
 # GitHub Instructions
 
+## Project Structure
+
+This is a **Tradewind** ASP.NET Core MVC web application for trading platform solutions.
+
+### Key Directories
+- **`src/Tradewind/`** - Main web application
+  - **`Controllers/`** - MVC controllers handling HTTP requests
+  - **`Views/`** - Razor view templates for UI rendering
+  - **`Models/`** - Data models and view models
+  - **`wwwroot/`** - Static files (CSS, JS, images)
+  - **`Properties/`** - Application configuration
+- **`src/Tradewind.Tests/`** - Unit tests for the application
+- **`.github/`** - GitHub workflows and repository documentation
+
+### Purpose
+The Tradewind application provides a modern, responsive trading platform interface with:
+- Landing page showcasing platform features
+- Real-time market data integration capabilities
+- Secure user authentication system
+- Mobile-responsive design with Bootstrap
+- Trading analytics and insights
+
 ## Commit Message Format
 
 Use Conventional Commits format for all commit messages:
