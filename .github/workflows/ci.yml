@@ -1,0 +1,41 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches: [ main, develop, features/* ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'
+        
+    - name: Restore dependencies
+      run: |
+        dotnet restore src/Tradewind/Tradewind.csproj
+        dotnet restore src/Tradewind.Tests/Tradewind.Tests.csproj
+        
+    - name: Build solution
+      run: |
+        dotnet build src/Tradewind/Tradewind.csproj --configuration Release --no-restore
+        dotnet build src/Tradewind.Tests/Tradewind.Tests.csproj --configuration Release --no-restore
+        
+    - name: Run tests
+      run: dotnet test src/Tradewind.Tests/Tradewind.Tests.csproj --configuration Release --no-build --verbosity normal --collect:"XPlat Code Coverage"
+      
+    - name: Generate coverage report
+      run: |
+        echo "Code coverage collection completed"
+        echo "Coverage files generated in TestResults directory"
+        Get-ChildItem -Path "src/Tradewind.Tests/TestResults" -Recurse -Filter "*.xml" | ForEach-Object { 
+          Write-Host "Found coverage file: $($_.FullName)" 
+        }
